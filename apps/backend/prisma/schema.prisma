@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- 1. Organization & User Management ---
+model BusinessUnit {
+  id        String   @id @default(uuid())
+  name      String
+  parentId  String?
+  parent    BusinessUnit? @relation("UnitHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  BusinessUnit[] @relation("UnitHierarchy")
+  mappings  OrgUserMapping[]
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Client {
+  id            String        @id @default(uuid())
+  name          String
+  email         String?
+  phone         String?
+  address       String?
+  opportunities Opportunity[]
+  projects      Project[]
+  invoices      Invoice[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  proposals     Proposal[]
+}
+
+model OrgRole {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  permissions String[] // e.g., ["crm:read", "projects:write"]
+  mappings    OrgUserMapping[]
+}
+
+model OrgUserMapping {
+  id        String       @id @default(uuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unitId    String
+  unit      BusinessUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  roleId    String
+  role      OrgRole      @relation(fields: [roleId], references: [id])
+  
+  @@unique([userId, unitId])
+}
+
+model User {
+  id             String       @id @default(uuid())
+  email          String       @unique
+  passwordHash   String
+  role           Role
+  isActive       Boolean      @default(true)
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  activities     Activity[]
+  timesheets     Timesheet[]
+  orgMappings    OrgUserMapping[]
+  ownedOpportunities Opportunity[] @relation("OpportunityOwner")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+enum Role {
+  ADMIN
+  FINANCE
+  SALES
+  MARKETING
+  PROJECT_MANAGER
+  EMPLOYEE
+  CLIENT
+}
+
+// --- 2. CRM Module ---
+model Account {
+  id            String        @id @default(uuid())
+  name          String
+  industry      String?
+  opportunities Opportunity[]
+  createdAt     DateTime      @default(now())
+}
+
+model Opportunity {
+  id               String       @id @default(uuid())
+  accountId        String?
+  account          Account?      @relation(fields: [accountId], references: [id])
+  clientId         String?
+  client           Client?      @relation(fields: [clientId], references: [id])
+  ownerId          String?
+  owner            User?         @relation("OpportunityOwner", fields: [ownerId], references: [id])
+  name             String
+  stage            PipelineStage
+  probability      Int          // 0-100
+  expectedCloseDate DateTime?
+  dealValue        Decimal      @db.Decimal(20, 2)
+  activities       Activity[]
+  projects         Project[]    // Converted to project
+  createdAt        DateTime     @default(now())
+  proposals        Proposal[]
+}
+
+enum PipelineStage {
+  PROSPECTING
+  INITIAL_MEETING
+  PROPOSAL_SENT
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum ProposalStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+}
+
+model Activity {
+  id            String      @id @default(uuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  type          String      // Call, Email, Meeting
+  notes         String?
+  date          DateTime
+}
+
+// --- 3. Project Management Module ---
+model Project {
+  id            String       @id @default(uuid())
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+  clientId      String?
+  client        Client?      @relation(fields: [clientId], references: [id])
+  name          String
+  billingModel  BillingModel
+  budget        Decimal?     @db.Decimal(10, 2)
+  milestones    Milestone[]
+  tasks         Task[]
+  timesheets    Timesheet[]
+  invoices      Invoice[]
+}
+
+enum BillingModel {
+  FIXED
+  HOURLY
+  RETAINER
+}
+
+model Milestone {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  name      String
+  dueDate   DateTime
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  title       String
+  description String?
+  status      String   // To Do, In Progress, Done
+}
+
+model Timesheet {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  hoursLogged Decimal  @db.Decimal(5, 2)
+  date        DateTime
+  isBillable  Boolean  @default(true)
+}
+
+// --- 4. Accounting Module (India GST Enabled) ---
+model Invoice {
+  id          String   @id @default(uuid())
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id])
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id])
+  amount      Decimal  @db.Decimal(10, 2)
+  cgst        Decimal  @db.Decimal(10, 2)
+  sgst        Decimal  @db.Decimal(10, 2)
+  igst        Decimal  @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+  hsnSacCode  String?
+  status      String   // DRAFT, SENT, PAID, OVERDUE
+  date        DateTime
+  dueDate     DateTime
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  category    String   // Connect to Chart of Accounts
+  cgst        Decimal  @db.Decimal(10, 2)
+  sgst        Decimal  @db.Decimal(10, 2)
+  igst        Decimal  @db.Decimal(10, 2)
+  isReverseCharge Boolean @default(false)
+  date        DateTime
+}
+
+model Proposal {
+  id               String         @id @default(uuid())
+  title            String
+  status           ProposalStatus @default(DRAFT)
+  clientId         String?
+  client           Client?        @relation(fields: [clientId], references: [id])
+  opportunityId    String?
+  opportunity      Opportunity?   @relation(fields: [opportunityId], references: [id])
+  content          Json           // Structured content (sections, text, etc.)
+  dealValue        Decimal?       @db.Decimal(20, 2)
+  validUntil       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
