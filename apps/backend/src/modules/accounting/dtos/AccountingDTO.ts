@@ -15,6 +15,12 @@ export const CreateInvoiceSchema = z.object({
     projectId: z.string().uuid().optional(),
     clientId: z.string().uuid().optional(),
     amount: z.number().min(0),
+    items: z.array(z.object({
+        description: z.string(),
+        quantity: z.number().min(1),
+        unitPrice: z.number().min(0),
+        amount: z.number().min(0)
+    })).default([]),
     isInterState: z.boolean().default(false),
     status: z.nativeEnum(InvoiceStatus).default(InvoiceStatus.SENT),
     hsnSacCode: z.string().optional(),

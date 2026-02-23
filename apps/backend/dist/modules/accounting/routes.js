@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const tsyringe_1 = require("tsyringe");
+const AccountingController_1 = require("./controllers/AccountingController");
+const authMiddleware_1 = require("../../shared/middlewares/authMiddleware");
+const router = (0, express_1.Router)();
+const accountingController = tsyringe_1.container.resolve(AccountingController_1.AccountingController);
+router.use(authMiddleware_1.protect);
+router.post('/invoices', (0, authMiddleware_1.restrictTo)('ADMIN', 'FINANCE'), accountingController.createInvoice);
+router.get('/invoices', (0, authMiddleware_1.restrictTo)('ADMIN', 'FINANCE', 'PROJECT_MANAGER'), accountingController.getInvoices);
+router.post('/expenses', (0, authMiddleware_1.restrictTo)('ADMIN', 'FINANCE', 'EMPLOYEE'), accountingController.createExpense);
+router.get('/expenses', (0, authMiddleware_1.restrictTo)('ADMIN', 'FINANCE'), accountingController.getExpenses);
+router.get('/reports/gstr1', (0, authMiddleware_1.restrictTo)('ADMIN', 'FINANCE'), accountingController.getGstr1);
+exports.default = router;

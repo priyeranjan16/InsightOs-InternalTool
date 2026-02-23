@@ -20,6 +20,7 @@ export const CreateOpportunitySchema = z.object({
 export const UpdateOpportunityStageSchema = z.object({
     stage: z.nativeEnum(PipelineStage),
     probability: z.number().min(0).max(100).optional(),
+    lostRemarks: z.string().optional(),
 });
 
 export const UpdateOpportunitySchema = CreateOpportunitySchema.partial();

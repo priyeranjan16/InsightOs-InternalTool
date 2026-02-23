@@ -37,7 +37,22 @@ export class CrmService {
     async updateOpportunityStage(id: string, data: UpdateOpportunityStageDTO) {
         if (!id) throw new AppError('Opportunity ID is required', 400);
 
-        return this.crmRepository.updateOpportunityStage(id, data);
+        const oldOpp = await this.crmRepository.getOpportunities().then(opps => opps.find(o => o.id === id));
+        if (!oldOpp) throw new AppError('Opportunity not found', 404);
+
+        const updatedOpp = await this.crmRepository.updateOpportunityStage(id, data);
+
+        if (data.stage === PipelineStage.CLOSED_WON && oldOpp.stage !== PipelineStage.CLOSED_WON) {
+            console.log(`Opportunity ${id} moved to CLOSED_WON. Auto-creating project...`);
+            try {
+                await this.convertToProject(id, BillingModel.FIXED);
+            } catch (err) {
+                console.error(`Failed to auto-create project for opp ${id}:`, err);
+                // We still want to return the updated opportunity even if project creation fails
+            }
+        }
+
+        return updatedOpp;
     }
 
     async updateOpportunity(id: string, data: UpdateOpportunityDTO) {

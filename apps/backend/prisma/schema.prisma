@@ -26,6 +26,7 @@ model Client {
   email         String?
   phone         String?
   address       String?
+  gstIn         String?
   opportunities Opportunity[]
   projects      Project[]
   invoices      Invoice[]
@@ -106,6 +107,7 @@ model Opportunity {
   projects         Project[]    // Converted to project
   createdAt        DateTime     @default(now())
   proposals        Proposal[]
+  lostRemarks      String?
 }
 
 enum PipelineStage {
@@ -197,6 +199,7 @@ model Invoice {
   sgst        Decimal  @db.Decimal(10, 2)
   igst        Decimal  @db.Decimal(10, 2)
   total       Decimal  @db.Decimal(10, 2)
+  items       Json     @default("[]")
   hsnSacCode  String?
   status      String   // DRAFT, SENT, PAID, OVERDUE
   date        DateTime

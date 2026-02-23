@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const tsyringe_1 = require("tsyringe");
+const ProjectsController_1 = require("./controllers/ProjectsController");
+const authMiddleware_1 = require("../../shared/middlewares/authMiddleware");
+const router = (0, express_1.Router)();
+const projectsController = tsyringe_1.container.resolve(ProjectsController_1.ProjectsController);
+router.use(authMiddleware_1.protect);
+router.post('/', (0, authMiddleware_1.restrictTo)('ADMIN', 'PROJECT_MANAGER'), projectsController.createProject);
+router.get('/', projectsController.getProjects);
+router.post('/tasks', (0, authMiddleware_1.restrictTo)('ADMIN', 'PROJECT_MANAGER', 'EMPLOYEE'), projectsController.createTask);
+router.post('/timesheets', (0, authMiddleware_1.restrictTo)('EMPLOYEE', 'PROJECT_MANAGER', 'ADMIN'), projectsController.logTime);
+router.get('/:id/profitability', (0, authMiddleware_1.restrictTo)('ADMIN', 'FINANCE', 'PROJECT_MANAGER'), projectsController.getProfitability);
+exports.default = router;
